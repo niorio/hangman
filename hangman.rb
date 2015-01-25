@@ -8,14 +8,14 @@ class Hangman
   end
 
   def game
-    secret_length = @checker.register_secret_length
+    secret_length = @checker.pick_word
     @guesser.register_secret_length(secret_length)
     @board = [nil] * secret_length
 
     while @num_remaining_guesses > 0 && !won?
-      guess = @guesser.get_guess
+      guess = @guesser.get_guess(@board, @num_remaining_guesses)
       response = @checker.check_guess(guess)
-      if response.nil?
+      if response.empty?
         @num_remaining_guesses-=1
       else
         update_board(guess, response)
@@ -45,7 +45,7 @@ class HumanPlayer
 
   def register_secret_length(secret_length)
 
-    puts "The word is #{secret_length} letters long: "
+    puts "The word is #{secret_length} letters long."
   end
 
   def get_guess(board, num_remaining_guesses)
@@ -70,8 +70,68 @@ class HumanPlayer
     #only the computer needs this method.  a human can see what's on screen.
   end
 
+  def pick_word
+    print "Think of a word. How long is it? "
+    gets.chomp
+  end
+
+
 end
 
+class ComputerPlayer
+
+  def initialize(dict_name)
+    @dictionary = File.readlines(dict_name).map(&:chomp)
+  end
+
+  def pick_word
+    @secret_word = @dictionary.sample
+    @secret_word.length
+  end
+
+  def register_secret_length(secret_length)
+    @candidates = dictionary.dup
+    @candidates.select {|word| word.length == secret_length}
+    @known = [nil] * secret_length
+  end
+
+  def get_guess(board, num_remaining_guesses)
+    letter_freq = Hash.new(0)
+
+    @candidates.each do |candidate|
+      candidate.each_char do |char|
+        letter_freq[char] += 1
+      end
+    end
+
+    frequencies = letter_freq.sort_by{|letter, freq| freq}
+    frequencies.last[0] #most frequent letter
+
+  end
+
+  def check_guess(guess)
+    positions = []
+    @secret_word.each_index do |i|
+      positions << i if @secret_word[i] = guess[i]
+    end
+    positions
+
+  end
+
+  def handle_response(guess, response)
+    #update understanding of the word
+    response.each {|pos| @known[pos] = guess}
+
+    #narrow candidates
+    @candidates.select! do |candidate|
+      candidate.each_char.with_index.all? do |char, i|
+        @known[i].nil? || @known[i] == char
+      end
+    end
+
+  end
+
+end
 
 
 
