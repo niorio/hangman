@@ -1,3 +1,4 @@
+require 'byebug'
 class Hangman
   MAX_WRONG = 8
 
@@ -52,16 +53,16 @@ class HumanPlayer
     puts "You have #{num_remaining_guesses} guesses left"
     board.each {|letter| letter.nil? ? print("_") : print(letter)}
 
-    print "Your guess: "
+    print "\nYour guess: "
     gets.chomp
   end
 
   def check_guess(guess)
     puts "Opponent guessed #{guess}"
-    puts "What positions does this letter occure at? (if none press enter)"
+    puts "What positions does this letter occur at? (if none press enter)"
 
     positions = gets.chomp.split(",")
-    positions.map! {|pos| pos.to_i}
+    positions.map! {|pos| pos.to_i-1}  #index begins at 1 for easier understanding
     positions
 
   end
@@ -72,7 +73,7 @@ class HumanPlayer
 
   def pick_word
     print "Think of a word. How long is it? "
-    gets.chomp
+    gets.chomp.to_i
   end
 
 
@@ -82,6 +83,7 @@ class ComputerPlayer
 
   def initialize(dict_name)
     @dictionary = File.readlines(dict_name).map(&:chomp)
+    @used_letters = []
   end
 
   def pick_word
@@ -90,29 +92,39 @@ class ComputerPlayer
   end
 
   def register_secret_length(secret_length)
-    @candidates = dictionary.dup
-    @candidates.select {|word| word.length == secret_length}
+    @candidates = @dictionary.dup
+    @candidates.select! {|word| word.length == secret_length}
     @known = [nil] * secret_length
   end
 
   def get_guess(board, num_remaining_guesses)
+    puts "#{num_remaining_guesses} guesses left"
+    board.each {|letter| letter.nil? ? print("_") : print(letter)}
+    print "\n"
+
     letter_freq = Hash.new(0)
 
     @candidates.each do |candidate|
       candidate.each_char do |char|
+        next if @used_letters.include?(char)
         letter_freq[char] += 1
       end
     end
 
     frequencies = letter_freq.sort_by{|letter, freq| freq}
-    frequencies.last[0] #most frequent letter
+    best_letter = frequencies.last[0] #most frequent letter
+
+    @used_letters << best_letter
+
+    best_letter
 
   end
 
   def check_guess(guess)
+
     positions = []
-    @secret_word.each_index do |i|
-      positions << i if @secret_word[i] = guess[i]
+    @secret_word.each_char.with_index do |char, i|
+      positions << i if char == guess
     end
     positions
 
@@ -141,13 +153,20 @@ if __FILE__ == $PROGRAM_NAME
 
   puts "Hangman! Is the guesser a human or computer? (h/c)"
   if gets.chomp.downcase == "c"
-    player1 = ComputerPlayer.new
+    player1 = ComputerPlayer.new('dictionary.txt')
   else
+    player1 = HumanPlayer.new
+  end
+
+  puts "Is the checker a human or computer? (h/c)"
+  if gets.chomp.downcase == "h"
     player2 = HumanPlayer.new
+  else
+    player2 = ComputerPlayer.new('dictionary.txt')
   end
 
   game = Hangman.new(player1, player2)
 
-  game.play
+  game.game
 
 end
